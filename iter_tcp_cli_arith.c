@@ -25,7 +25,7 @@ int64_t ntohll(int64_t val) {
 void cli_biz(int sockfd) {
     char buffer[BUFFER_SIZE];
     char op_str[4];
-    int64_t op1, op2;
+    int64_t op1, op2,op1_h,op2_h;
     int32_t op;
     while (1) {
         // 从stdin读取用户的命令行计算指令
@@ -42,23 +42,35 @@ void cli_biz(int sockfd) {
         // 根据操作符字符串确定操作符
         if (strcmp(op_str, "ADD") == 0) {
             op = 1;
+            op_str[0] = '+';
+            op_str[1] = '\0';
         } else if (strcmp(op_str, "SUB") == 0) {
             op = 2;
+            op_str[0] = '-';
+            op_str[1] = '\0';
         } else if (strcmp(op_str, "MUL") == 0) {
             op = 4;
+            op_str[0] = '*';
+            op_str[1] = '\0';
         } else if (strcmp(op_str, "DIV") == 0) {
             op = 8;
+            op_str[0] = '/';
+            op_str[1] = '\0';
         } else if (strcmp(op_str, "MOD") == 0) {
             op = 16;
+            op_str[0] = '%';
+            op_str[1] = '\0';
         } else {
             fprintf(stderr, "Invalid operation: %s\n", op_str);
             return;
         }
 
         // 将操作数和操作符转换为网络字节序
+        op1_h = op1; // 保存原始数据
+        op2_h = op2; // 保存原始数据
         op = htonl(op);
-        op1 = htonll(op1);
-        op2 = htonll(op2);
+        op1 = htonll(op1); // 64位整数转换为网络字节序
+        op2 = htonll(op2); // 64位整数转换为网络字节序
 
         // 将操作数和操作符写入缓冲区
         memcpy(buffer, &op, sizeof(op));
@@ -85,7 +97,7 @@ void cli_biz(int sockfd) {
         memcpy(&res, buffer, sizeof(res));
         res = ntohll(res);
 
-        printf("[rep_rcv] %ld %s %ld = %ld\n", op1, op_str, op2, res);
+        printf("[rep_rcv] %ld %s %ld = %ld\n", op1_h, op_str, op2_h, res);
     }
 }
 

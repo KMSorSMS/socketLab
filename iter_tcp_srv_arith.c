@@ -14,8 +14,8 @@
 
 // 错误处理函数
 void error(const char *msg) {
-  perror(msg); // 打印错误信息
-  exit(1);     // 退出程序
+  printf(",%s\n", msg); // 打印错误信息
+  exit(1);              // 退出程序
 }
 
 int sigint_flag = 0; // 标记是否收到SIGINT信号
@@ -47,16 +47,13 @@ void srv_biz(int sockfd) {
   int32_t op;
   int64_t op1, op2, res;
   char buffer[BUFFER_SIZE];
-  while (1) {
+  while (!sigint_flag) {
     // 读取客户端发送的数据
     bzero(buffer, BUFFER_SIZE);
     // 这里每次就只读一个PDU，一次次读取内容
     n = read(sockfd, buffer, BUFFER_SIZE - 1);
-    if (n < 0)
-      error("ERROR reading from socket");
-    if (n == 0) {
-      break;
-    }
+    if (n <= 0)
+      return;
     // 将网络字节序转换为主机字节序
     memcpy(&op, buffer, sizeof(op));
     memcpy(&op1, buffer + sizeof(op), sizeof(op1));
@@ -142,19 +139,14 @@ int main(int argc, char *argv[]) {
     error("ERROR on binding"); // 如果绑定失败，打印错误信息并退出
 
   printf("[srv] server[%s:%d] is initializing!\n", ip, PORT);
-
+  listen(sockfd, MAX_CLIENTS); // 开始监听端口，等待客户端的连接
+  clilen = sizeof(cli_addr);   // 获取客户端地址的长度
   while (!sigint_flag) {
-    listen(sockfd, MAX_CLIENTS); // 开始监听端口，等待客户端的连接
-    clilen = sizeof(cli_addr); // 获取客户端地址的长度
     newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr,
                        &clilen); // 接受客户端的连接
-
     if (newsockfd < 0) {
       if (errno == EINTR) {
-        printf("[srv] listenfd is closed!\n");
-        printf("[srv] server is going to exit!\n");
-        close(sockfd); // 关闭原始套接字
-        exit(0);
+        continue;
       } else
         error("ERROR on accept"); // 如果接受失败，打印错误信息并退出
     }
@@ -164,8 +156,12 @@ int main(int argc, char *argv[]) {
            ntohs(cli_addr.sin_port));
     // 调用业务函数与客户端进行收发互动
     srv_biz(newsockfd);
+    // 输出客户端断开连接的信息
+    printf("[srv] client[%s:%d] is closed!\n", inet_ntoa(cli_addr.sin_addr),
+           ntohs(cli_addr.sin_port));
     close(newsockfd); // 关闭新的套接字
   }
+
   printf("[srv] listenfd is closed!\n");
   printf("[srv] server is going to exit!\n");
   close(sockfd); // 关闭原始套接字
