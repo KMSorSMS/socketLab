@@ -1,13 +1,13 @@
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <errno.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define BUFFER_SIZE 256
 #define MAX_CLIENTS 5
@@ -31,8 +31,14 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  signal(SIGPIPE, SIG_IGN); // 忽略SIGPIPE信号
-  signal(SIGINT, handle_sigint); // 安装SIGINT信号处理器
+  struct sigaction sa;
+  sa.sa_flags = 0;
+  sa.sa_handler = handle_sigint;
+  sigemptyset(&sa.sa_mask);
+  if (sigaction(SIGINT, &sa, NULL) < 0) {
+    perror("sigaction");
+    exit(1);
+  }
 
   int sockfd, newsockfd, n; // 定义套接字描述符和读写计数器
   socklen_t clilen;         // 定义客户端地址的长度
@@ -62,15 +68,25 @@ int main(int argc, char *argv[]) {
   while (!sigint_flag) {
     listen(sockfd, MAX_CLIENTS); // 开始监听端口，等待客户端的连接
     clilen = sizeof(cli_addr);   // 获取客户端地址的长度
-    newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen); // 接受客户端的连接
+    newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr,
+                       &clilen); // 接受客户端的连接
 
     if (newsockfd < 0) {
-      if (errno == EINTR) continue; // 如果accept被信号中断，重新执行
-      else error("ERROR on accept"); // 如果接受失败，打印错误信息并退出
+      if (errno == EINTR) {
+        printf("[srv] listenfd is closed!\n");
+        printf("[srv] server is going to exit!\n");
+        close(sockfd); // 关闭原始套接字
+        exit(0);
+      } else
+        error("ERROR on accept"); // 如果接受失败，打印错误信息并退出
     }
 
-    bzero(buffer, BUFFER_SIZE);                 // 清空缓冲区
-    //读取客户端发送的消息
+    // 输出客户端信息
+    printf("[srv] client[%s:%d] is accepted!\n", inet_ntoa(cli_addr.sin_addr),
+           ntohs(cli_addr.sin_port));
+    bzero(buffer, BUFFER_SIZE); // 清空缓冲区
+    // 读取客户端发送的消息,
+    n = read(newsockfd, buffer, BUFFER_SIZE - 1);
 
     n = write(newsockfd, buffer, strlen(buffer)); // 将欢迎消息写入到新的套接字
     if (n < 0)
@@ -78,6 +94,8 @@ int main(int argc, char *argv[]) {
 
     close(newsockfd); // 关闭新的套接字
   }
+  printf("[srv] listenfd is closed!\n");
+  printf("[srv] server is going to exit!\n");
   close(sockfd); // 关闭原始套接字
   return 0;
 }
