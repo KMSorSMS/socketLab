@@ -79,7 +79,7 @@ void cli_biz(int sockfd) {
 
         // 发送数据到服务器
         int n = write(sockfd, buffer, sizeof(op) + sizeof(op1) + sizeof(op2));
-        if (n < 0) {
+        if (n <= 0) {
             perror("ERROR writing to socket");
             return;
         }
@@ -87,7 +87,7 @@ void cli_biz(int sockfd) {
         // 读取服务器的响应
         bzero(buffer, BUFFER_SIZE);
         n = read(sockfd, buffer, BUFFER_SIZE - 1);
-        if (n < 0) {
+        if (n <= 0) {
             perror("ERROR reading from socket");
             return;
         }

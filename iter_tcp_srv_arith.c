@@ -65,32 +65,32 @@ void srv_biz(int sockfd) {
     switch (op) {
     case 1:
       res = op1 + op2;
-      printf("[rqt] %ld + %ld = %ld\n", op1, op2, res);
+      printf("[rqt_res] %ld + %ld = %ld\n", op1, op2, res);
       break;
     case 2:
       res = op1 - op2;
-      printf("[rqt] %ld - %ld = %ld\n", op1, op2, res);
+      printf("[rqt_res] %ld - %ld = %ld\n", op1, op2, res);
       break;
     case 4:
       res = op1 * op2;
-      printf("[rqt] %ld * %ld = %ld\n", op1, op2, res);
+      printf("[rqt_res] %ld * %ld = %ld\n", op1, op2, res);
       break;
     case 8:
       if (op2 == 0) {
         res = -1;
-        printf("[rqt] %ld / %ld = -1\n", op1, op2);
+        printf("[rqt_res] %ld / %ld = -1\n", op1, op2);
       } else {
         res = op1 / op2;
-        printf("[rqt] %ld / %ld = %ld\n", op1, op2, res);
+        printf("[rqt_res] %ld / %ld = %ld\n", op1, op2, res);
       }
       break;
     case 16:
       res = op1 % op2;
-      printf("[rqt] %ld %% %ld = %ld\n", op1, op2, res);
+      printf("[rqt_res] %ld %% %ld = %ld\n", op1, op2, res);
       break;
     default:
       res = -1;
-      printf("[rqt] invalid operator!\n");
+      printf("[rqt_res] invalid operator!\n");
       break;
     }
     res = htonll(res);
