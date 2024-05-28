@@ -1,15 +1,16 @@
-#include <arpa/inet.h> // 添加这个头文件
-#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <errno.h>
 
-#define MAX_CLIENTS 1   // 定义服务器最大可以处理的客户端数量
-#define BUFFER_SIZE 256 // 定义缓冲区的大小
+#define BUFFER_SIZE 256
+#define MAX_CLIENTS 5
 
 // 错误处理函数
 void error(const char *msg) {
@@ -17,11 +18,21 @@ void error(const char *msg) {
   exit(1);     // 退出程序
 }
 
+int sigint_flag = 0; // 标记是否收到SIGINT信号
+
+void handle_sigint(int sig) {
+  printf("[srv] SIGINT is coming!\n");
+  sigint_flag = 1;
+}
+
 int main(int argc, char *argv[]) {
   if (argc < 3) {
     fprintf(stderr, "ERROR, no port provided\n");
     exit(1);
   }
+
+  signal(SIGPIPE, SIG_IGN); // 忽略SIGPIPE信号
+  signal(SIGINT, handle_sigint); // 安装SIGINT信号处理器
 
   int sockfd, newsockfd, n; // 定义套接字描述符和读写计数器
   socklen_t clilen;         // 定义客户端地址的长度
@@ -45,17 +56,22 @@ int main(int argc, char *argv[]) {
   // 绑定套接字到服务器的地址和端口
   if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     error("ERROR on binding"); // 如果绑定失败，打印错误信息并退出
-  while (1) {
+
+  printf("[srv] server[%s:%d] is initializing!\n", ip, PORT);
+
+  while (!sigint_flag) {
     listen(sockfd, MAX_CLIENTS); // 开始监听端口，等待客户端的连接
     clilen = sizeof(cli_addr);   // 获取客户端地址的长度
-    newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr,
-                       &clilen); // 接受客户端的连接
-    if (newsockfd < 0)
-      error("ERROR on accept"); // 如果接受失败，打印错误信息并退出
+    newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen); // 接受客户端的连接
+
+    if (newsockfd < 0) {
+      if (errno == EINTR) continue; // 如果accept被信号中断，重新执行
+      else error("ERROR on accept"); // 如果接受失败，打印错误信息并退出
+    }
 
     bzero(buffer, BUFFER_SIZE);                 // 清空缓冲区
     //读取客户端发送的消息
-    
+
     n = write(newsockfd, buffer, strlen(buffer)); // 将欢迎消息写入到新的套接字
     if (n < 0)
       error("ERROR writing to socket"); // 如果写入失败，打印错误信息并退出
